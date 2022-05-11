@@ -1,0 +1,234 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <title>IoT Control Dashboard</title>
+    
+</head>
+<body>
+    <h1>Dashboard</h1>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+
+
+    <div class="container">
+        <div>
+            <h2>Current sensor values:</h2>
+
+            <div>
+                <table class="table">
+                    <thead>
+                      <tr>
+                        <th scope="col">SENSOR</th>
+                        <th scope="col"></th>
+                        <th scope="col">PIN</th>
+                        <th scope="col"></th>
+                        <th scope="col">VALUE</th>
+                        <th scope="col"></th>
+                        <th scope="col">LAST UPDATE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                        
+                        {% for sensor_name, sensor_object in data.items() if sensor_name == 'readingSensors' %}
+                            {% for key, value in sensor_object.items() %}
+                            
+                            <tr>
+
+                                <td>
+                                    <div class="d-grid">
+                                        {{loop.index}} | {{key|upper}} ({{ value.name }})
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                        {{value.pin}}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div id="{{key}}_value" class="d-grid">
+                                        {{value.value}}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div id="{{key}}_updated" class="d-grid">
+                                        {{value.updated}}
+                                    </div>
+                                </td>
+
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+
+                        {% for counter, counterValue in data.items() if counter == 'counters' %}
+                            {% for key, value in counterValue.items() %}
+                            <tr>
+
+                                <td>
+                                    <div class="d-grid">
+                                        {{key|upper}} times opened
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div id="{{key}}_value" class="d-grid">
+                                        {{value.opened}}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-grid">
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div id="{{key}}_updated" class="d-grid">
+                                        {{value.updated}}
+                                    </div>
+                                </td>
+
+                            </tr>
+
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+
+        <h2>Smart home control:</h2>
+
+        <div>
+            <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">SENSOR</th>
+                    <th scope="col">PIN</th>
+                    <th scope="col">VALUE</th>
+                    <th scope="col">ACTION</th>
+                    <!-- <th scope="col"></th>
+                    <th scope="col"></th>
+                    <th scope="col">LAST UPDATE</th> -->
+                  </tr>
+                </thead>
+                <tbody>
+                    <!-- kontrola garaze, ventilatora i relay-a (svetla) -->
+                    {% for sensor_name, sensor_object in data.items() if sensor_name == 'controlSensors' %}
+                            {% for key, value in sensor_object.items() %}
+                        
+                        <tr>
+                            <td>
+                                <div class="d-grid">
+                                   {{loop.index}} | {{key|upper}}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-grid">
+                                   {{value.pin}}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" value="" placeholder="{{value.value}}" aria-label="Value" aria-describedby="basic-addon1" id="{{value.pin}}" name="{{value.pin}}">
+                                </div>
+                            <td>
+                                <div class="d-grid">
+                                    <button onClick="execuCommand('W',{{value.pin}})" type="button" class="btn btn-primary">EKTIVEJT KOMEND</button>
+                                </div>
+                            </td>
+                            <!-- <td>
+                                <div class="d-grid">
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-grid">
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-grid">
+                                    placeholder
+                                </div>
+                            </td> -->
+                          </tr>
+                          <tr>
+                              
+                          </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+<script>
+    const urlGetReadings = window.location.origin + "/getReadings";
+    const urlExecCommand = window.location.origin + "/execCommand";
+
+    function execuCommand(rw, pin) {
+
+        let value = $("#" + pin).val();
+
+        if (value == "" || value == undefined) {
+            return 0;
+        }
+        
+        let route = urlExecCommand + "/" + rw + "/" + pin + "/" + value
+        
+        $.get(route, (data) => { });
+    }
+
+    function getReadings() {
+        $.get(urlGetReadings, (data) => {
+
+            for (const [key, value] of Object.entries(data.data_async)) {
+                if (key == "readingSensors") {
+                    for (const [key1, value1] of Object.entries(value)) {
+                        $("#" + key1 + "_value").text(value1.value);
+                        $("#" + key1 + "_updated").text(value1.updated);
+                    }
+                }
+                if (key == "counters") {
+                    for (const [key1, value1] of Object.entries(value)) {
+                        $("#" + key1 + "_value").text(value1.opened);
+                        $("#" + key1 + "_updated").text(value1.updated);
+                    }
+                }
+            }
+            
+        });
+    }
+
+    setInterval(function() {
+        getReadings();
+    }, 15000);
+</script>
+</body>
+</html>
