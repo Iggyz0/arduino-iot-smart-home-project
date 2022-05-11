@@ -5,7 +5,7 @@ import time
 from modules import emailCommunication, thingspeak
 from datetime import datetime
 
-PORT = "COM1"
+PORT = "COM3"
 BAUD_RATE = 9600
 CONTROLLER_ID = 0
 
@@ -34,23 +34,28 @@ def receive(serialConnection):
     while running:
         
         if serialConnection.in_waiting > 0:
-            receivedMessage = serialConnection.read_until(b';').decode('ascii')
-            #processMessage(receivedMessage)
+            receivedMessage = serialConnection.read_until(b'$').decode('ascii')
+            processMessage(receivedMessage)
+            serialConnection.reset_input_buffer()
         time.sleep(0.1)
 
 def processMessage(message):
     global allSensors
     # ODGOVOR : #ARDUINO_ID:SENSOR:VAL;#ARDUINO_ID:SENSOR:VAL;#ARDUINO_ID:SENSOR:VAL;#ARDUINO_ID:SENSOR:VAL;
-    # konkretan primer dobijene poruke -> #0:temperature:23.05;#0:photoresistor:6;#0:garage:3;#0:relay:7;
+    # konkretan primer dobijene poruke -> #0:temperature:23.05;#0:photoresistor:6;#0:garage:3;#0:relay:7;$
+    message = message[:-1]
     
     splitList = message.split(";")
-    splitList.pop()
+    #splitList.pop()
 
     for item in splitList:
         if item[0:1] == "#":
             messageItemProcess(item)
     
     # kada je procitana poruka i kada su upisane vrednosti u globalni objekat, sada treba da posaljemo na thingspeak
+    #print(splitList)
+    #print("    \n")
+    #print(allSensors)
     thingspeak.sendDataToThingSpeak(allSensors)
 
 def messageItemProcess(item):
@@ -58,7 +63,7 @@ def messageItemProcess(item):
     temp = item.split(":")
     if temp[1] == "temperature" or temp[1] == "photoresistor":
         allSensors["readingSensors"][temp[1]]["value"] = temp[2]
-        allSensors["readingSensors"][temp[1]]["value"] = str(datetime.now())
+        allSensors["readingSensors"][temp[1]]["updated"] = str(datetime.now())
     elif temp[1] == "garage" or temp[1] == "relay":
         allSensors["counters"][temp[1]]["opened"] = temp[2]
         allSensors["counters"][temp[1]]["updated"] = str(datetime.now())
