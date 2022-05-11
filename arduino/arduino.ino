@@ -1,6 +1,6 @@
-//#include <Servo.h>
+#include <ServoTimer2.h>
 #include <TimerOne.h>
-
+//latest
 #define ARDUINO_ID 0
 
 #define RELAY_CONTROL 4 // relay za led sijalicu
@@ -21,42 +21,28 @@ typedef enum { // moguca stanja masine stanja
 
 States state;
 
+// 750 = 0 stepeni, 1500 = 90 stepeni, 2250 = 180 stepeni -> servoMotor.write i .read moguce vrednosti
+ServoTimer2 servoMotor;
+
 //unsigned long dayDurationCounter = 4320000;
 volatile unsigned int timeCounter = 0; // pocetna vrednost vremenskog brojaca
 int timeToTriggerInt = 2000; // vreme u mikrosekundama na koje se desava vremenski prekid
 int timeToSend = 30000; // kada treba poslati poruku serveru 30000 * 2000 = 60000000 = 1min
-
 float speedOfSound = 0.0343; // brzina zvuka u cm/us
 
-int relayState = HIGH; // pocetno stanje releja
-
+int relayState = LOW; // pocetno stanje releja
 int oldPotValue = 0; // pamtimo prethodno procitanu vrednost potenciometra
-
 volatile int currentDistance = 10; // bilo koja vrednost veca od 5 da bi garaza bila zatvorena
 int oldDistValue = -1; // ovo mozda nije neophodno???
 int garageStatus = LOW; // LOW = zatvoreno, HIGH = otvoreno
 bool openGarageRemotely = false;
-
-//Servo servoControl; // objekat za kontrolu servo motora
+bool closeGarageRemotely = false;
+volatile unsigned int garageTimer = 0;
+int currentMotorSpeed = 0;
 
 // podaci za izvestaj
 int relayTimesSwitched = 0;
 int garageTimesOpened = 0;
-
-void openGarage() {
-  	garageTimesOpened++;
-    //Serial.println("OTVARAM");
-	  //servoControl.write(90);
-    //digitalWrite(SERVO_MOTOR, HIGH);
-    analogWrite(SERVO_MOTOR, 250);
-   
-}
-
-void closeGarage() {
-    //Serial.println("ZATVARAM");
-	//servoControl.write(0);
-  analogWrite(SERVO_MOTOR, 0);
-}
 
 float getTemperature() {
 	int temperatureReading = analogRead(TEMPERATURE_SENSOR);
@@ -73,6 +59,20 @@ int getLightAmount() {
 	int lightReading = analogRead(PHOTORESISTOR);
   	lightReading = map(lightReading, 0, 310, 0, 100);
   	return lightReading; // vracamo % osvetljenosti
+}
+
+int incVal(int m, int i) {
+  if ((m + i) >=1500) {
+    return 1500;
+  }
+  return m + i;
+}
+
+int decVal(int m, int i) {
+  if ((m - i) <= 750) {
+    return 750;  
+  }
+  return m - i;
 }
 
 // vremenski prekid (koristimo za ultrasonic sensor i slanje podataka)
@@ -95,26 +95,32 @@ void timeInterrupt() {
         break;
     }
     case CONTROL: {
-      if ( currentDistance != oldDistValue ) { // ovo mozda ne treba
-    
+          
         if ( (currentDistance <= 5) || openGarageRemotely ) {
+          
           if ( garageStatus == LOW ) {
             // otvori
-            //openGarage();
-            analogWrite(SERVO_MOTOR, 250);
-            garageStatus = HIGH;
+            currentMotorSpeed = incVal(servoMotor.read(), 50);
+            if (currentMotorSpeed >= 1500) {
+              garageStatus = HIGH;
+              garageTimesOpened++;
+            } else if (currentMotorSpeed < 1500 && garageStatus == LOW) {
+              servoMotor.write(currentMotorSpeed);
+            }
           }
         }
-        else if ( (currentDistance > 5) || !openGarageRemotely) {
+        else if ( (currentDistance > 5) || closeGarageRemotely) {
            if ( garageStatus == HIGH ) {
             // zatvori
-            //closeGarage();
-            analogWrite(SERVO_MOTOR, 0);
-            garageStatus = LOW;
+            currentMotorSpeed = decVal( servoMotor.read(), 50 );
+            if (currentMotorSpeed <= 750) {
+              garageStatus = LOW;
+              closeGarageRemotely = false;
+            } else if (currentMotorSpeed > 750 && garageStatus == HIGH) {
+              servoMotor.write(currentMotorSpeed);
+            }
           }
         }
-      }
-
 
       state = WAIT;
     }
@@ -126,10 +132,12 @@ void timeInterrupt() {
     }
   }
 
-  //NOTE: OVA 2 IF-A MOZDA IZMESTITI U CONTROL CASE ?????????????????????
-  if (timeCounter % 3000 == 0) {
-    //Serial.println( "TEMP: " + String(getTemperature()) );
-    //Serial.println( "LIGHT: " + String(getLightAmount()) );
+  if (garageStatus == HIGH) {
+    garageTimer++;
+    if (garageTimer % 5000 == 0) {
+      openGarageRemotely = false;
+      garageTimer = 0;
+    }  
   }
   
   if ( timeCounter >= timeToSend ) {
@@ -148,7 +156,7 @@ void sendMessage() {
   	String msg = "#" + String(ARDUINO_ID) + ":temperature:" + String(temp) + ";" +
                  "#" + String(ARDUINO_ID) + ":photoresistor:" + String(light) + ";" +
                  "#" + String(ARDUINO_ID) + ":garage:" + String(garageTimesOpened) + ";" +
-                 "#" + String(ARDUINO_ID) + ":relay:" + String(relayTimesSwitched) + ";" ;
+                 "#" + String(ARDUINO_ID) + ":relay:" + String(relayTimesSwitched) + "$" ;
   	Serial.println(msg);
 }
 
@@ -165,25 +173,23 @@ void setup()
   
   digitalWrite(RELAY_CONTROL, relayState);
   
-  //servoControl.attach(SERVO_MOTOR);
-  pinMode(SERVO_MOTOR, OUTPUT);
-  
-  closeGarage();
+  servoMotor.attach(SERVO_MOTOR);
+  servoMotor.write(750);
   
   Timer1.initialize(timeToTriggerInt); //(u mikrosekundama)
   Timer1.attachInterrupt(timeInterrupt);
 }
 
-float getDistance() {
-  digitalWrite(T_ULTRASONIC_SENSOR, LOW);
-  delayMicroseconds(2);
-  digitalWrite(T_ULTRASONIC_SENSOR, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(T_ULTRASONIC_SENSOR, LOW);
-  
-  float echoValue = pulseIn(R_ULTRASONIC_SENSOR, HIGH);
-  return echoValue * 0.0343 * 0.5;
-}
+//float getDistance() {
+//  digitalWrite(T_ULTRASONIC_SENSOR, LOW);
+//  delayMicroseconds(2);
+//  digitalWrite(T_ULTRASONIC_SENSOR, HIGH);
+//  delayMicroseconds(10);
+//  digitalWrite(T_ULTRASONIC_SENSOR, LOW);
+//  
+//  float echoValue = pulseIn(R_ULTRASONIC_SENSOR, HIGH);
+//  return echoValue * 0.0343 * 0.5;
+//}
 
 void loop()
 {
@@ -240,9 +246,11 @@ void loop()
         
         if ( commandValue == "OPEN" ) {
         	openGarageRemotely = true;
+          closeGarageRemotely = false;
         }
         else if ( commandValue == "CLOSE" ) {
         	openGarageRemotely = false;
+          closeGarageRemotely = true;
         }
         
       }
@@ -259,28 +267,5 @@ void loop()
   	analogWrite(DC_MOTOR, potValue);
   	oldPotValue = potValue;
   }
-  
-  // ULTRASONIC SENSOR
-  //currentDistance = (int)getDistance(); // current distance preko vremenskog prekida
-//  if ( currentDistance != oldDistValue ) {
-//    
-//    if ( (currentDistance <= 5) || openGarageRemotely ) {
-//      if ( garageStatus == LOW ) {
-//        // otvori
-//        openGarage();
-//        garageStatus = HIGH;
-//      }
-//    }
-//    else if ( (currentDistance > 5) || !openGarageRemotely) { // mozda samo else?
-//     	if ( garageStatus == HIGH ) {
-//        // zatvori
-//        closeGarage();
-//        garageStatus = LOW;
-//      }
-//    }
-//  }
- 
-  //Serial.println( "TEMP: " + String(getTemperature()) );
-  //Serial.println( "LIGHT: " + String(getLightAmount()) );
    
 }
