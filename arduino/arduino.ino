@@ -100,25 +100,31 @@ void timeInterrupt() {
           
           if ( garageStatus == LOW ) {
             // otvori
-            currentMotorSpeed = incVal(servoMotor.read(), 50);
-            if (currentMotorSpeed >= 1500) {
-              garageStatus = HIGH;
-              garageTimesOpened++;
-            } else if (currentMotorSpeed < 1500 && garageStatus == LOW) {
-              servoMotor.write(currentMotorSpeed);
-            }
+//             currentMotorSpeed = incVal(servoMotor.read(), 50);
+//             if (currentMotorSpeed >= 1500) {
+//               garageStatus = HIGH;
+//               garageTimesOpened++;
+//             } else if (currentMotorSpeed < 1500 && garageStatus == LOW) {
+//               servoMotor.write(currentMotorSpeed);
+//             }
+		servoMotor.write(1500);
+		garageStatus = HIGH;
+		openGarageRemotely = false;
           }
         }
         else if ( (currentDistance > 5) || closeGarageRemotely) {
            if ( garageStatus == HIGH ) {
             // zatvori
-            currentMotorSpeed = decVal( servoMotor.read(), 50 );
-            if (currentMotorSpeed <= 750) {
-              garageStatus = LOW;
-              closeGarageRemotely = false;
-            } else if (currentMotorSpeed > 750 && garageStatus == HIGH) {
-              servoMotor.write(currentMotorSpeed);
-            }
+//             currentMotorSpeed = decVal( servoMotor.read(), 50 );
+//             if (currentMotorSpeed <= 750) {
+//               garageStatus = LOW;
+//               closeGarageRemotely = false;
+//             } else if (currentMotorSpeed > 750 && garageStatus == HIGH) {
+//               servoMotor.write(currentMotorSpeed);
+//             }
+		servoMotor.write(750);
+		garageStatus = LOW; 
+		closeGarageRemotely = false;
           }
         }
 
@@ -132,13 +138,13 @@ void timeInterrupt() {
     }
   }
 
-  if (garageStatus == HIGH) {
-    garageTimer++;
-    if (garageTimer % 5000 == 0) {
-      openGarageRemotely = false;
-      garageTimer = 0;
-    }  
-  }
+//   if (garageStatus == HIGH) {
+//     garageTimer++;
+//     if (garageTimer % 5000 == 0) {
+//       openGarageRemotely = false;
+//       garageTimer = 0;
+//     }  
+//   }
   
   if ( timeCounter >= timeToSend ) {
   	// salje se na veb serveru svakog minuta
